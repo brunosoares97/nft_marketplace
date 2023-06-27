@@ -2,7 +2,6 @@
 pragma solidity ^0.8.4;
 
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
-
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
 import "hardhat/console.sol";
@@ -40,6 +39,13 @@ contract Marketplace is ReentrancyGuard {
         uint price,
         address indexed seller,
         address indexed buyer
+    );
+
+     event ItemDeleted(
+        uint indexed itemId,
+        address indexed nft,
+        uint tokenId,
+        address indexed seller
     );
 
     constructor(uint _feePercent) {
@@ -98,5 +104,22 @@ contract Marketplace is ReentrancyGuard {
     }
     function getTotalPrice(uint _itemId) view public returns(uint){
         return((items[_itemId].price*(100 + feePercent))/100);
+    }
+
+    // Delete an item from the marketplace
+    function deleteItem(uint _itemId) external nonReentrant {
+        Item storage item = items[_itemId];
+        require(_itemId > 0 && _itemId <= itemCount, "Item doesn't exist");
+        require(item.seller == msg.sender, "Only the item seller can delete the item");
+        require(!item.sold, "Cannot delete a sold item");
+
+        // Transfer the NFT back to the seller
+        item.nft.transferFrom(address(this), item.seller, item.tokenId);
+
+        // Remove the item from the marketplace
+        delete items[_itemId];
+
+        // Emit an event for the deletion
+        emit ItemDeleted(_itemId, address(item.nft), item.tokenId, item.seller);
     }
 }
